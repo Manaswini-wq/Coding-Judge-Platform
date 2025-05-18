@@ -1,0 +1,49 @@
+import docker
+import os
+import time
+
+class DockerExecutor:
+    def __init__(self):
+        self.client = docker.from_env()
+        self.timeout = 5  # Max execution time (seconds)
+
+    def run_code(self, code, language, input_data=""):
+        """Executes code in a disposable Docker container."""
+        image = "python:3.9" if language == "python" else "gcc:latest"
+        container = None
+        
+        try:
+            # Create container with resource limits
+            container = self.client.containers.run(
+                image,
+                detach=True,
+                mem_limit="100m",  # 100MB memory limit
+                cpu_period=100000,
+                cpu_quota=50000,   # 50% CPU limit
+                network_mode="none",  # No network access
+                volumes=None,
+                command=self._get_run_command(language, code),
+            )
+
+            # Wait for execution or timeout
+            start_time = time.time()
+            while container.status != "exited":
+                if time.time() - start_time > self.timeout:
+                    container.stop()
+                    return {"error": "Time Limit Exceeded"}
+                container.reload()
+
+            logs = container.logs().decode("utf-8").strip()
+            return {"output": logs}
+
+        except Exception as e:
+            return {"error": str(e)}
+        finally:
+            if container:
+                container.remove()
+
+    def _get_run_command(self, language, code):
+        if language == "python":
+            return f"python -c \"{code}\""
+        elif language == "cpp":
+            return f"sh -c 'echo \"{code}\" > main.cpp && g++ main.cpp -o main && ./main'"
