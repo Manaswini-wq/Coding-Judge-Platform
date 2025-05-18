@@ -1,0 +1,31 @@
+from .models import Problem, Submission
+
+def evaluate_submission(submission_id):
+    submission = Submission.objects.get(id=submission_id)
+    problem = submission.problem
+    test_cases = problem.testcase_set.all()
+    
+    results = []
+    for test_case in test_cases:
+        # Execute code with test input
+        docker_executor = DockerExecutor()
+        execution_result = docker_executor.run_code(
+            submission.code,
+            submission.language,
+            test_case.input_data
+        )
+        
+        # Compare output with expected
+        passed = execution_result.get("output") == test_case.expected_output
+        results.append({
+            "input": test_case.input_data,
+            "expected": test_case.expected_output,
+            "actual": execution_result.get("output"),
+            "passed": passed,
+            "error": execution_result.get("error")
+        })
+    
+    # Update submission status
+    submission.results = results
+    submission.passed = all(result["passed"] for result in results)
+    submission.save()
