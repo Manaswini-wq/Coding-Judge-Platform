@@ -1,0 +1,29 @@
+from django.db import models
+from django.contrib.auth.models import User
+
+class Problem(models.Model):
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    difficulty = models.CharField(max_length=50, choices=[
+        ("easy", "Easy"),
+        ("medium", "Medium"),
+        ("hard", "Hard"),
+    ])
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class TestCase(models.Model):
+    problem = models.ForeignKey(Problem, on_delete=models.CASCADE)
+    input_data = models.TextField()
+    expected_output = models.TextField()
+
+class Submission(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    problem = models.ForeignKey(Problem, on_delete=models.CASCADE)
+    code = models.TextField()
+    language = models.CharField(max_length=20, choices=[
+        ("python", "Python"),
+        ("cpp", "C++"),
+    ])
+    results = models.JSONField(default=list)  # Stores test case results
+    passed = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(auto_now_add=True)
